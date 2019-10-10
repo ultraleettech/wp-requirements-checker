@@ -5,6 +5,8 @@ When there's any version mismatch when your plugin is activated, the library wil
 
 This way, when unsupported PHP language features or WP functionality is used in your plugin, it won't break the site and make it difficult for the admin to fix the issues.
 
+Since version 1.1.0, you can also add in other plugins that your plugin depends on (for instance, when creating an add-on).
+
 ## Usage
 There are multiple ways to use this library, depending on the way you are developing your plugin. The main ones are using Composer, and just including the library manually. You can find instructions for both of these below.
 
@@ -25,10 +27,13 @@ Then, instantiate the library and check the requirements. Make sure you continue
 
 ```php
 $requirementsChecker = new \Ultraleet\WP\RequirementsChecker(array(
-    'title' => 'My WordPress Plugin Title',
+    'title' => 'My WordPress Plugin Title', // Required
+    'file' => __FILE__, // Required
     'php' => '7.2',
     'wp' => '4.9',
-    'file' => __FILE__,
+    'plugins' => array(
+        'Required Plugin' => 'plugin-dir/plugin-file.php',
+    ),
 ));
 
 if ($requirementsChecker->passes()) {
@@ -37,6 +42,8 @@ if ($requirementsChecker->passes()) {
 
 // This should be the end of the main plugin file.
 ```
+
+Note, that only elements with the comment 'Required' are needed for the library to work. You can pick and choose which ones of the other options you want to check for.
 
 ### Using manual loading
 Download the file `src/RequirementsChecker.php` from this repository and place it somewhere within your project tree.
