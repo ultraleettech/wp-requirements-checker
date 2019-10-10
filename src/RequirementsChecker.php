@@ -8,6 +8,7 @@ class RequirementsChecker
     private $php = '7.2.0';
     private $wp = '4.9';
     private $file;
+    private $plugins = [];
 
     /**
      * RequirementsChecker constructor.
@@ -17,11 +18,12 @@ class RequirementsChecker
      *      @type string $php Minimum required PHP version for your plugin.
      *      @type string $wp Minimum required WP version for your plugin.
      *      @type string $file Path to your plugin's main file.
+     *      @type array $plugins Required plugins ('Plugin Title' => 'plugin-dir/plugin-file.php').
      * }
      */
     public function __construct($args)
     {
-        foreach (['title', 'php', 'wp', 'file'] as $setting) {
+        foreach (['title', 'php', 'wp', 'file', 'plugins'] as $setting) {
             if (isset($args[$setting])) {
                 $this->$setting = $args[$setting];
             }
@@ -39,7 +41,7 @@ class RequirementsChecker
      */
     public function passes()
     {
-        $passes = $this->phpPasses() && $this->wpPasses();
+        $passes = $this->phpPasses() && $this->wpPasses() && $this->pluginsActive();
         if (!$passes) {
             add_action('admin_notices', [$this, 'deactivate']);
         }
@@ -49,7 +51,7 @@ class RequirementsChecker
     /**
      * Deactivate the plugin when requirements are not met.
      */
-    public function deactivate()
+    protected function deactivate()
     {
         deactivate_plugins(plugin_basename($this->file));
     }
@@ -70,7 +72,7 @@ class RequirementsChecker
     }
 
     /**
-     * Display notice when PHP version requirement is not met.
+     * Display a notice when PHP version requirement is not met.
      */
     public function phpVersionNotice()
     {
@@ -86,7 +88,7 @@ class RequirementsChecker
      *
      * @return bool
      */
-    private function wpPasses()
+    protected function wpPasses()
     {
         if (self::isVersionAtLeast(get_bloginfo('version'), $this->wp)) {
             return true;
@@ -97,7 +99,7 @@ class RequirementsChecker
     }
 
     /**
-     * Display notice when WordPress version requirement is not met.
+     * Display a notice when WordPress version requirement is not met.
      */
     public function wpVersionNotice()
     {
@@ -106,6 +108,59 @@ class RequirementsChecker
                 $this->title
             ) . "&#8221; plugin cannot run on WordPress versions older than " . $this->wp . '. Please update WordPress.</p>';
         echo '</div>';
+    }
+
+    /**
+     * Check if all required plugins are active.
+     *
+     * @return bool
+     */
+    protected function pluginsActive()
+    {
+        foreach ($this->plugins as $title => $file) {
+            if (!in_array($file, apply_filters('active_plugins', get_option('active_plugins')))) {
+                update_option($this->getPluginNotActiveOptionName(), $title, false);
+                add_action('admin_notices', [$this, 'pluginNotActiveNotice']);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Generate unique option name from plugin dir name.
+     *
+     * @return string
+     */
+    protected function getPluginNotActiveOptionName()
+    {
+        return $this->getOptionPrefix() . '_plugin_not_active';
+    }
+
+    /**
+     * Generate unique option prefix from plugin dir name.
+     *
+     * @return string
+     */
+    protected function getOptionPrefix()
+    {
+        $pluginBaseName = plugin_basename($this->file);
+        $pluginDirName = explode('/', $pluginBaseName)[0];
+        return str_replace('-', '_', $pluginDirName);
+    }
+
+    /**
+     * Display a notice when one of the required plugins is not active.
+     */
+    public function pluginNotActiveNotice()
+    {
+        $requiredPlugin = esc_html(get_option($this->getPluginNotActiveOptionName()));
+        echo '<div class="error">';
+        echo "<p>The &#8220;" . esc_html(
+                $this->title
+            ) . "&#8221; plugin requires <strong>$requiredPlugin</strong> to be installed and activated.</p>";
+        echo '</div>';
+        delete_option($this->getPluginNotActiveOptionName());
     }
 
     /**
