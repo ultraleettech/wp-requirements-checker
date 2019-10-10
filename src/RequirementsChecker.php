@@ -68,7 +68,7 @@ class RequirementsChecker
     /**
      * Deactivate the plugin when requirements are not met.
      */
-    protected function deactivate()
+    public function deactivate()
     {
         deactivate_plugins(plugin_basename($this->file));
     }
